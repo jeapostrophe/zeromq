@@ -1,4 +1,4 @@
-#lang racket/base
+#lang at-exp racket/base
 (require ffi/unsafe
          (prefix-in c: racket/contract)
          scribble/srcdoc)
@@ -19,7 +19,7 @@
     (provide/doc
      [proc-doc/names
       external (c:-> name/c ... result/c)
-      (name ...) ""])))
+      (name ...) @{An FFI binding for @litchar[(symbol->string 'internal)].}])))
 
 ;;
 
@@ -33,7 +33,11 @@
     (define _type
       (_enum (append '[sym = num] ...) _int))
     (define type?
-      (c:symbols 'sym ...))))
+      (c:symbols 'sym ...))
+    (provide/doc
+     [thing-doc
+      type? c:contract?
+      @{A contract for the symbols @racket['(sym ...)]}])))
 
 (define-zmq-symbols _socket-type socket-type?
   [PAIR = 0]
@@ -204,7 +208,7 @@
            (provide/doc
             [proc-doc/names
              external (c:-> socket? option-name? (c:or/c type? ... bytes?))
-             (socket option-name) ""]))))]))
+             (socket option-name) @{XXX}]))))]))
 
 (define-zmq-socket-options
   [socket-option zmq_getsockopt]
@@ -215,3 +219,43 @@
    [_uint64 (λ (x) x) exact-nonnegative-integer?
             HWM AFFINITY SNDBUF RCVBUF])
   (IDENTITY))
+
+(define-syntax (define-zmq-set-socket-options! stx)
+  (syntax-case stx ()
+    [(_ [external internal]
+        ([type? before _type opt ...] ...)
+        (byte-opt ...))
+     (with-syntax ([(_type-external ...) (generate-temporaries #'(_type ...))])
+       (syntax/loc stx
+         (begin
+           (define-zmq* [_type-external internal]
+             (_fun _socket _option-name 
+                   [option-value : _type]
+                   [option-size : _size_t = (ctype-sizeof _type)]
+                   -> [err : _int] -> (unless (zero? err) (zmq-error))))
+           ...
+           (define-zmq* [byte-external internal]
+             (_fun _socket _option-name
+                   [option-value : _bytes]
+                   [option-size : _size_t = (bytes-length option-value)]
+                   -> [err : _int] -> (unless (zero? err) (zmq-error))))
+           (define (external sock opt-name opt-val)
+             (case opt-name
+               [(opt ...) (_type-external sock opt-name (before opt-val))]
+               ...
+               [(byte-opt ...) (byte-external sock opt-name opt-val)]))
+           (provide/doc
+            [proc-doc/names
+             external (c:-> socket? option-name? (c:or/c type? ... bytes?) void)
+             (socket option-name option-value) @{XXX}]))))]))
+
+(define-zmq-set-socket-options!
+  [set-socket-option! zmq_setsockopt]
+  ([exact-nonnegative-integer? (λ (x) x) _uint64
+                               HWM AFFINTY SNDBUF RCVBUF]
+   [exact-integer? (λ (x) x) _int64
+                   SWAP RATE RECOVER_IVL]
+   [boolean? (λ (x) (if x 1 0)) _int64
+             MCAST_LOOP])
+  (IDENTITY SUBSCRIBE UNSUBSCRIBE))
+
