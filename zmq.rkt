@@ -5,9 +5,11 @@
          racket/splicing
          (for-syntax racket/base
                      racket/stxparam-exptime)
+         (except-in racket/contract ->)
          (prefix-in c: racket/contract)
          scribble/srcdoc)
 (require/doc racket/base
+             (for-label (except-in racket/contract ->))
              scribble/manual)
 
 (define zmq-lib (ffi-lib "libzmq"))
@@ -21,19 +23,27 @@
                       (-> [name name/c] ...
                           result/c)
                       type)
-  (splicing-syntax-parameterize 
-   ([current-zmq-fun 'external])
-   (define-zmq* (external internal) type)
-   (provide/doc
-    [proc-doc/names
-     external (c:-> name/c ... result/c)
-     (name ...) @{An FFI binding for @litchar[(symbol->string 'internal)].}])))
+  (begin
+    (splicing-syntax-parameterize 
+     ([current-zmq-fun 'external])
+     (define-zmq* (external internal) type))
+    (provide/doc
+     [proc-doc/names
+      external (c:-> name/c ... result/c)
+      (name ...) @{An FFI binding for 
+                   @link[(format "http://api.zeromq.org/~a.html" 'internal)]{@symbol->string['internal]}.}])))
 
 ;;
 
-; XXX Export/doc
 (define-cpointer-type _context)
 (define-cpointer-type _socket)
+(provide/doc
+ [proc-doc/names
+  context? (c:-> any/c boolean?)
+  (x) @{Determines if @racket[x] is a pointer to a ZeroMQ context.}]
+ [proc-doc/names
+  socket? (c:-> any/c boolean?)
+  (x) @{Determines if @racket[x] is a pointer to a ZeroMQ socket.}])
 
 (define-syntax-rule (define-zmq-symbols _type type?
                       [sym = num] ...)
@@ -44,7 +54,7 @@
       (c:symbols 'sym ...))
     (provide/doc
      [thing-doc
-      type? c:contract?
+      type? contract?
       @{A contract for the symbols @racket['(sym ...)]}])))
 (define-syntax-rule (define-zmq-bitmask _base _type type?
                       [sym = num] ...)
@@ -57,7 +67,7 @@
       (c:or/c type-symbol? (c:listof type-symbol?)))
     (provide/doc
      [thing-doc
-      type? c:contract?
+      type? contract?
       @{A contract for any symbol in @racket['(sym ...)] or any list of those symbols.}])))
 
 (define-zmq-symbols _socket-type socket-type?
@@ -114,14 +124,31 @@
    [flags _uchar]
    [vsm_size _uchar]
    [vsm_data _ucharMAX]))
+(provide/doc
+ [proc-doc/names
+  msg? (c:-> any/c boolean?)
+  (x) @{Determines if @racket[x] is a ZeroMQ message.}]
+ [thing-doc
+  _msg ctype?
+  @{A ctype for ZeroMQ messages, suitable for using with @racket[malloc].}])
 
 (define-cstruct _poll-item
   ([socket _socket]
    [fd _int]
    [events _poll-status]
    [revents _poll-status]))
-(provide (rename-out [make-poll-item poll-item])
-         poll-item-revents)
+(provide/doc
+ [proc-doc/names
+  poll-item? (c:-> any/c boolean?)
+  (x) @{Determines if @racket[x] is a ZeroMQ poll item.}]
+ [proc-doc/names 
+  make-poll-item (c:-> socket? exact-nonnegative-integer? poll-status? poll-status?
+                       poll-item?)
+  (socket fd events revents)
+  @{Constructs a poll item for using with @racket[poll!].}]
+ [proc-doc/names
+  poll-item-revents (c:-> poll-item? poll-status?)
+  (pi) @{Extracts the @litchar{revents} field from a poll item structure.}])
   
 ;; Errors
 (define-zmq*
@@ -194,9 +221,12 @@
   (-> [msg msg?] exact-nonnegative-integer?)
   (_fun _msg-pointer -> _size_t))
 
-; xxx export/doc
 (define (msg-data m)
   (make-sized-byte-string (msg-data-pointer m) (msg-size m)))
+(provide/doc
+ [proc-doc/names
+  msg-data (c:-> msg? bytes?)
+  (msg) @{Creates a sized byte string from a message's data.}])
 
 (define-zmq
   [msg-copy! zmq_msg_copy]
@@ -228,34 +258,37 @@
         (byte-opt ...))
      (with-syntax ([(_type-external ...) (generate-temporaries #'(_type ...))])
        (syntax/loc stx
-         (splicing-syntax-parameterize 
-          ([current-zmq-fun 'external])
-          (define-zmq* [_type-external internal]
-            (_fun _socket _option-name 
-                  [option-value : (_ptr o _type)]
-                  [option-size : (_ptr o _size_t)]
-                  -> [err : _int]
-                  -> (if (zero? err)
-                         option-value
-                         (zmq-error))))
-          ...
-          (define-zmq* [byte-external internal]
-            (_fun _socket _option-name
-                  [option-value : (_bytes o 255)]
-                  [option-size : (_ptr o _size_t)]
-                  -> [err : _int]
-                  -> (if (zero? err)
-                         (subbytes option-value 0 option-size)
-                         (zmq-error))))
-          (define (external sock opt-name)
-            (case opt-name
-              [(opt ...) (after (_type-external sock opt-name))]
-              ...
-              [(byte-opt ...) (byte-external sock opt-name)]))
-          (provide/doc
-           [proc-doc/names
-            external (c:-> socket? option-name? (c:or/c type? ... bytes?))
-            (socket option-name) @{XXX}]))))]))
+         (begin
+           (splicing-syntax-parameterize 
+            ([current-zmq-fun 'external])
+            (define-zmq* [_type-external internal]
+              (_fun _socket _option-name 
+                    [option-value : (_ptr o _type)]
+                    [option-size : (_ptr o _size_t)]
+                    -> [err : _int]
+                    -> (if (zero? err)
+                           option-value
+                           (zmq-error))))
+            ...
+            (define-zmq* [byte-external internal]
+              (_fun _socket _option-name
+                    [option-value : (_bytes o 255)]
+                    [option-size : (_ptr o _size_t)]
+                    -> [err : _int]
+                    -> (if (zero? err)
+                           (subbytes option-value 0 option-size)
+                           (zmq-error)))))
+           (define (external sock opt-name)
+             (case opt-name
+               [(opt ...) (after (_type-external sock opt-name))]
+               ...
+               [(byte-opt ...) (byte-external sock opt-name)]))
+           (provide/doc
+            [proc-doc/names
+             external (c:-> socket? option-name? (or/c type? ... bytes?))
+             (socket option-name)
+             @{Extracts the given option's value from the socket, similar to
+               @link[(format "http://api.zeromq.org/~a.html" 'zmq_getsockopt)]{@symbol->string['zmq_getsockopt]}.}]))))]))
 
 (define-zmq-socket-options
   [socket-option zmq_getsockopt]
@@ -274,28 +307,31 @@
         (byte-opt ...))
      (with-syntax ([(_type-external ...) (generate-temporaries #'(_type ...))])
        (syntax/loc stx
-         (splicing-syntax-parameterize 
-          ([current-zmq-fun 'external])
-          (define-zmq* [_type-external internal]
-            (_fun _socket _option-name 
-                  [option-value : _type]
-                  [option-size : _size_t = (ctype-sizeof _type)]
-                  -> [err : _int] -> (unless (zero? err) (zmq-error))))
-          ...
-          (define-zmq* [byte-external internal]
-            (_fun _socket _option-name
-                  [option-value : _bytes]
-                  [option-size : _size_t = (bytes-length option-value)]
-                  -> [err : _int] -> (unless (zero? err) (zmq-error))))
-          (define (external sock opt-name opt-val)
-            (case opt-name
-              [(opt ...) (_type-external sock opt-name (before opt-val))]
-              ...
-              [(byte-opt ...) (byte-external sock opt-name opt-val)]))
-          (provide/doc
-           [proc-doc/names
-            external (c:-> socket? option-name? (c:or/c type? ... bytes?) void)
-            (socket option-name option-value) @{XXX}]))))]))
+         (begin
+           (splicing-syntax-parameterize 
+            ([current-zmq-fun 'external])
+            (define-zmq* [_type-external internal]
+              (_fun _socket _option-name 
+                    [option-value : _type]
+                    [option-size : _size_t = (ctype-sizeof _type)]
+                    -> [err : _int] -> (unless (zero? err) (zmq-error))))
+            ...
+            (define-zmq* [byte-external internal]
+              (_fun _socket _option-name
+                    [option-value : _bytes]
+                    [option-size : _size_t = (bytes-length option-value)]
+                    -> [err : _int] -> (unless (zero? err) (zmq-error)))))
+           (define (external sock opt-name opt-val)
+             (case opt-name
+               [(opt ...) (_type-external sock opt-name (before opt-val))]
+               ...
+               [(byte-opt ...) (byte-external sock opt-name opt-val)]))
+           (provide/doc
+            [proc-doc/names
+             external (c:-> socket? option-name? (or/c type? ... bytes?) void)
+             (socket option-name option-value)
+             @{Sets the given option's value from the socket, similar to
+               @link[(format "http://api.zeromq.org/~a.html" 'zmq_setsockopt)]{@symbol->string['zmq_setsockopt]}.}]))))]))
 
 (define-zmq-set-socket-options!
   [set-socket-option! zmq_setsockopt]
@@ -324,7 +360,6 @@
   (_fun _socket _msg-pointer _send/recv-flags
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
-; XXX
 (define (socket-send! s bs)
   (define m (malloc _msg 'raw))
   (set-cpointer-tag! m msg-tag)
@@ -337,7 +372,11 @@
    (λ ()
      (msg-close! m)
      (free m))))
-(provide socket-send!)
+(provide/doc
+ [proc-doc/names
+  socket-send! (c:-> socket? bytes? void)
+  (socket bytes)
+  @{Sends a byte string on a socket using @racket[socket-send-msg!] and a temporary message.}])
 
 (define-zmq
   [socket-recv-msg! zmq_recv]
@@ -345,7 +384,6 @@
   (_fun _socket _msg-pointer _send/recv-flags
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
-; XXX
 (define (socket-recv! s)
   (define m (malloc _msg 'raw))
   (set-cpointer-tag! m msg-tag)
@@ -357,17 +395,21 @@
    (λ ()
      (msg-close! m)
      (free m))))
-(provide socket-recv!)
+(provide/doc
+ [proc-doc/names
+  socket-recv! (c:-> socket? bytes?)
+  (socket)
+  @{Receives a byte string on a socket using @racket[socket-recv-msg!] and a temporary message.}])
 
 (define-zmq
   [poll! zmq_poll]
-  (-> [items (c:vectorof poll-item?)] [timeout exact-integer?] void)
+  (-> [items (vectorof poll-item?)] [timeout exact-integer?] void)
   (_fun [items : (_vector i _poll-item)] [nitems : _int = (vector-length items)]
         [timeout : _long]
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
 (define-zmq
-  [version zmq_version]
+  [zmq-version zmq_version]
   (-> (values exact-nonnegative-integer? exact-nonnegative-integer? exact-nonnegative-integer?))
   (_fun [major : (_ptr o _int)] [minor : (_ptr o _int)] [patch : (_ptr o _int)]
         -> [err : _int] -> (if (zero? err) (values major minor patch) (zmq-error))))
