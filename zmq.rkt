@@ -191,21 +191,6 @@
   (_fun _msg-pointer _size_t
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
-(define *zmq-data* (make-hasheq))
-(define (make-free-er in)
-  (hash-set! *zmq-data* in #t)
-  free-er)
-(define (free-er out)
-  (hash-remove! *zmq-data* out))
-
-(define _zmq_free_fn (_fun _bytes _pointer -> _void))
-(define-zmq
-  [msg-init-data! zmq_msg_init_data]
-  (-> [msg msg?] [data bytes?] void)
-  (_fun _msg-pointer [data : _bytes] [size : _size_t = (bytes-length data)]
-        [ffn : _zmq_free_fn = (make-free-er data)] [hint : _pointer = #f]
-        -> [err : _int] -> (unless (zero? err) (zmq-error))))
-
 (define-zmq
   [msg-close! zmq_msg_close]
   (-> [msg msg?] void)

@@ -16,6 +16,8 @@ This package provides a binding for the @link["http://www.zeromq.org/"]{ZeroMQ} 
 
 This documentation does not describe meaning of API calls; it only describes their Racket calling conventions. For details on API semantics, refer to the documentation at the @link["http://api.zeromq.org/zmq.html"]{ZeroMQ site}.
 
+@litchar{zmq_msg_init_data} is not supported, because Racket pointers may be moved by the garbage collector before the ZeroMQ library is done with them.
+
 @local-table-of-contents[]
 
 @section[#:tag "api"]{API}
