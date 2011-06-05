@@ -2,7 +2,7 @@
 @(require scribble/manual
           scribble/basic
           scribble/extract
-          unstable/scribble
+          planet/scribble
           (for-label (except-in ffi/unsafe ->)
                      racket
                      (file "main.rkt")))
@@ -10,7 +10,7 @@
 @title[#:tag "top"]{ZeroMQ}
 @author[(author+email "Jay McCarthy" "jay@racket-lang.org")]
 
-@defmodule/this-package[]
+(defmodule/this-package main)
 
 This package provides a binding for the @link["http://www.zeromq.org/"]{ZeroMQ} library.
 
