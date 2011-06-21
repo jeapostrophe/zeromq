@@ -4,6 +4,7 @@
          racket/stxparam
          racket/splicing
          (for-syntax racket/base
+                     racket/syntax
                      racket/stxparam-exptime)
          (except-in racket/contract ->)
          (prefix-in c: racket/contract)
