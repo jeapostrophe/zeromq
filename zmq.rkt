@@ -377,7 +377,7 @@
   (socket-recv-msg! s m empty)
   (dynamic-wind
    void
-   (λ () (msg-data m))
+   (λ () (bytes-copy (msg-data m)))
    (λ ()
      (msg-close! m)
      (free m))))
