@@ -1,4 +1,0 @@
-#!/bin/sh
-export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:/opt/local/lib
-export DYLD_FRAMEWORK_PATH=$DYLD_FRAMEWORK_PATH:/opt/local/Library/Frameworks
-exec ~/Dev/scm/plt/src/build64/racket/racket3m $*

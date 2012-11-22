@@ -2,17 +2,17 @@
 @(require scribble/manual
           scribble/basic
           scribble/extract
-          planet/scribble
           (for-label (except-in ffi/unsafe ->)
                      racket
-                     (file "main.rkt")))
+                     net/zmq))
 
 @title[#:tag "top"]{ZeroMQ}
 @author[(author+email "Jay McCarthy" "jay@racket-lang.org")]
 
-(defmodule/this-package main)
+@defmodule[net/zmq]
 
-This package provides a binding for the @link["http://www.zeromq.org/"]{ZeroMQ} library.
+This package provides a binding for the
+@link["http://www.zeromq.org/"]{ZeroMQ} library.
 
 This documentation does not describe meaning of API calls; it only describes their Racket calling conventions. For details on API semantics, refer to the documentation at the @link["http://api.zeromq.org/zmq.html"]{ZeroMQ site}.
 
@@ -20,6 +20,4 @@ This documentation does not describe meaning of API calls; it only describes the
 
 @local-table-of-contents[]
 
-@section[#:tag "api"]{API}
-@defmodule/this-package[zmq]
-@include-extracted[(file "zmq.rkt")]
+@include-extracted[net/zmq]
