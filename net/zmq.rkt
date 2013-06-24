@@ -87,8 +87,6 @@
   [XPUB = 9]
   [XSUB = 10])
 (define-zmq-symbols _option-name option-name?
-  [HWM = 1]
-  [SWAP = 3]
   [AFFINITY = 4]
   [IDENTITY = 5]
   [SUBSCRIBE = 6]
@@ -98,9 +96,12 @@
   [MCAST_LOOP = 10]
   [SNDBUF = 11]
   [RCVBUF = 12]
-  [RCVMORE = 13])
+  [RCVMORE = 13]
+  [SNDHWM = 23]
+  [RCVHWM = 24])
 (define-zmq-bitmask _int _send/recv-flags send/recv-flags?
-  [NOBLOCK = 1]
+  [DONTWAIT = 1]
+  [NOBLOCK = 1] ; NOBLOCK has been replaced with DONTWAIT, leaving in for compatibility
   [SNDMORE = 2])
 (define-zmq-bitmask _short _poll-status poll-status?
   [POLLIN = 1]
@@ -286,9 +287,9 @@
   ([_int64 zero? boolean? 
            RCVMORE MCAST_LOOP]
    [_int64 (λ (x) x) exact-integer?
-           SWAP RATE RECOVERY_IVL]
+           RATE RECOVERY_IVL]
    [_uint64 (λ (x) x) exact-nonnegative-integer?
-            HWM AFFINITY SNDBUF RCVBUF])
+            SNDHWM RCVHWM AFFINITY SNDBUF RCVBUF])
   (IDENTITY))
 
 (define-syntax (define-zmq-set-socket-options! stx)
@@ -327,9 +328,9 @@
 (define-zmq-set-socket-options!
   [set-socket-option! zmq_setsockopt]
   ([exact-nonnegative-integer? (λ (x) x) _uint64
-                               HWM AFFINTY SNDBUF RCVBUF]
+                               SNDHWM RCVHWM AFFINTY SNDBUF RCVBUF]
    [exact-integer? (λ (x) x) _int64
-                   SWAP RATE RECOVER_IVL]
+                   RATE RECOVER_IVL]
    [boolean? (λ (x) (if x 1 0)) _int64
              MCAST_LOOP])
   (IDENTITY SUBSCRIBE UNSUBSCRIBE))
