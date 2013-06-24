@@ -77,10 +77,15 @@
   [SUB = 2]
   [REQ = 3]
   [REP = 4]
+  [DEALER = 5]
+  [ROUTER = 6]
+  ; XREQ/XREQ deprecated in favour of DEALER/ROUTER and currently alias
   [XREQ = 5]
   [XREP = 6]
   [PULL = 7]
-  [PUSH = 8])
+  [PUSH = 8]
+  [XPUB = 9]
+  [XSUB = 10])
 (define-zmq-symbols _option-name option-name?
   [HWM = 1]
   [SWAP = 3]
