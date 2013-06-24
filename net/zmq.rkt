@@ -77,13 +77,16 @@
   [SUB = 2]
   [REQ = 3]
   [REP = 4]
+  [DEALER = 5]
+  [ROUTER = 6]
+  ; XREQ/XREQ deprecated in favour of DEALER/ROUTER and currently alias
   [XREQ = 5]
   [XREP = 6]
   [PULL = 7]
-  [PUSH = 8])
+  [PUSH = 8]
+  [XPUB = 9]
+  [XSUB = 10])
 (define-zmq-symbols _option-name option-name?
-  [HWM = 1]
-  [SWAP = 3]
   [AFFINITY = 4]
   [IDENTITY = 5]
   [SUBSCRIBE = 6]
@@ -93,9 +96,12 @@
   [MCAST_LOOP = 10]
   [SNDBUF = 11]
   [RCVBUF = 12]
-  [RCVMORE = 13])
+  [RCVMORE = 13]
+  [SNDHWM = 23]
+  [RCVHWM = 24])
 (define-zmq-bitmask _int _send/recv-flags send/recv-flags?
-  [NOBLOCK = 1]
+  [DONTWAIT = 1]
+  [NOBLOCK = 1] ; NOBLOCK has been replaced with DONTWAIT, leaving in for compatibility
   [SNDMORE = 2])
 (define-zmq-bitmask _short _poll-status poll-status?
   [POLLIN = 1]
@@ -281,9 +287,9 @@
   ([_int64 zero? boolean? 
            RCVMORE MCAST_LOOP]
    [_int64 (λ (x) x) exact-integer?
-           SWAP RATE RECOVERY_IVL]
+           RATE RECOVERY_IVL]
    [_uint64 (λ (x) x) exact-nonnegative-integer?
-            HWM AFFINITY SNDBUF RCVBUF])
+            SNDHWM RCVHWM AFFINITY SNDBUF RCVBUF])
   (IDENTITY))
 
 (define-syntax (define-zmq-set-socket-options! stx)
@@ -322,9 +328,9 @@
 (define-zmq-set-socket-options!
   [set-socket-option! zmq_setsockopt]
   ([exact-nonnegative-integer? (λ (x) x) _uint64
-                               HWM AFFINTY SNDBUF RCVBUF]
+                               SNDHWM RCVHWM AFFINTY SNDBUF RCVBUF]
    [exact-integer? (λ (x) x) _int64
-                   SWAP RATE RECOVER_IVL]
+                   RATE RECOVER_IVL]
    [boolean? (λ (x) (if x 1 0)) _int64
              MCAST_LOOP])
   (IDENTITY SUBSCRIBE UNSUBSCRIBE))
@@ -341,10 +347,10 @@
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
 (define-zmq
-  [socket-send-msg! zmq_send]
-  (-> [socket socket?] [msg msg?] [flags send/recv-flags?] void)
-  (_fun _socket _msg-pointer _send/recv-flags
-        -> [err : _int] -> (unless (zero? err) (zmq-error))))
+  [socket-send-msg! zmq_msg_send]
+  (-> [msg msg?] [socket socket?] [flags send/recv-flags?] exact-integer?)
+  (_fun _msg-pointer _socket _send/recv-flags
+        -> [bytes-sent : _int] -> (if (negative? bytes-sent) (zmq-error) bytes-sent)))
 
 (define (socket-send! s bs)
   (define m (malloc _msg 'raw))
@@ -354,7 +360,7 @@
   (memcpy (msg-data-pointer m) bs len)
   (dynamic-wind
    void
-   (λ () (socket-send-msg! s m empty))
+   (λ () (socket-send-msg! m s empty) (void))
    (λ ()
      (msg-close! m)
      (free m))))
@@ -365,16 +371,16 @@
   @{Sends a byte string on a socket using @racket[socket-send-msg!] and a temporary message.}])
 
 (define-zmq
-  [socket-recv-msg! zmq_recv]
-  (-> [socket socket?] [msg msg?] [flags send/recv-flags?] void)
-  (_fun _socket _msg-pointer _send/recv-flags
-        -> [err : _int] -> (unless (zero? err) (zmq-error))))
+  [socket-recv-msg! zmq_msg_recv]
+  (-> [msg msg?] [socket socket?] [flags send/recv-flags?] void)
+  (_fun _msg-pointer _socket _send/recv-flags
+        -> [bytes-recvd : _int] -> (when (negative? bytes-recvd) (zmq-error))))
 
 (define (socket-recv! s)
   (define m (malloc _msg 'raw))
   (set-cpointer-tag! m msg-tag)
   (msg-init! m)
-  (socket-recv-msg! s m empty)
+  (socket-recv-msg! m s empty)
   (dynamic-wind
    void
    (λ () (bytes-copy (msg-data m)))
