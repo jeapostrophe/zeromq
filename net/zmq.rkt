@@ -220,22 +220,19 @@
   msg-data (c:-> msg? bytes?)
   (msg) @{Creates a sized byte string from a message's data.}])
 
-(define (make-msg)
+(define (make-empty-msg)
   (let ([msg (malloc _msg 'raw)])
-    (set-cpointer-tag! m msg-tag)
+    (set-cpointer-tag! msg msg-tag)
     msg))
-(provide/doc
- [proc-doc/names
-  make-msg (c:-> _msg?)
-  (void)
-  @{Returns a _msg ctype This message should be freed - via (free) when it is longer used}])
+(provide make-empty-msg)
 
 (define (make-msg-with-data bs)
-  (let ([_msg-ctype (make-msg-with-size (bytes-length bs))])
-    (memcpy (msg-data-pointer m) bs len)
+  (let* ([length (bytes-length bs)]
+        [_msg-ctype (make-msg-with-size length)])
+    (memcpy (msg-data-pointer _msg-ctype) bs length)
     _msg-ctype))
 (define (make-msg-with-size size)
-  (let ([_msg-ctype (make-msg)])
+  (let ([_msg-ctype (make-empty-msg)])
     (msg-init-size! _msg-ctype size)
     _msg-ctype))
 (define-zmq
