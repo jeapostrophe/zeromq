@@ -229,6 +229,10 @@
   make-msg (c:-> _msg?)
   (void)
   @{Returns a _msg ctype This message should be freed - via (free) when it is longer used}])
+(define (make-msg-with-size size)
+  (let ([_msg-ctype (make-msg)])
+    (msg-init-size! _msg-ctype size)
+    _msg-ctype))
 (define-zmq
   [msg-copy! zmq_msg_copy]
   (-> [dest msg?] [src msg?] void)
