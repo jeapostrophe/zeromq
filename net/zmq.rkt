@@ -229,6 +229,11 @@
   make-msg (c:-> _msg?)
   (void)
   @{Returns a _msg ctype This message should be freed - via (free) when it is longer used}])
+
+(define (make-msg-with-data bs)
+  (let ([_msg-ctype (make-msg-with-size (bytes-length bs))])
+    (memcpy (msg-data-pointer m) bs len)
+    _msg-ctype))
 (define (make-msg-with-size size)
   (let ([_msg-ctype (make-msg)])
     (msg-init-size! _msg-ctype size)
