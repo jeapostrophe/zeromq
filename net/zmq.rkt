@@ -220,6 +220,15 @@
   msg-data (c:-> msg? bytes?)
   (msg) @{Creates a sized byte string from a message's data.}])
 
+(define (make-msg)
+  (let ([msg (malloc _msg 'raw)])
+    (set-cpointer-tag! m msg-tag)
+    msg))
+(provide/doc
+ [proc-doc/names
+  make-msg (c:-> _msg?)
+  (void)
+  @{Returns a _msg ctype This message should be freed - via (free) when it is longer used}])
 (define-zmq
   [msg-copy! zmq_msg_copy]
   (-> [dest msg?] [src msg?] void)
