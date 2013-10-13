@@ -224,17 +224,33 @@
   (let ([msg (malloc _msg 'raw)])
     (set-cpointer-tag! msg msg-tag)
     msg))
-(provide make-empty-msg)
+(provide/doc
+ [proc-doc/names
+  make-empty-msg (c:-> msg?)
+  ()
+  @{Returns a _msg ctype with no data. The memory of malloc'd _msg must be manually freed via (free x)}])
 
 (define (make-msg-with-data bs)
   (let* ([length (bytes-length bs)]
-        [_msg-ctype (make-msg-with-size length)])
+         [_msg-ctype (make-msg-with-size length)])
     (memcpy (msg-data-pointer _msg-ctype) bs length)
     _msg-ctype))
+(provide/doc
+ [proc-doc/names
+  make-msg-with-data (c:-> bytes? msg?)
+  (bytes)
+  @{Returns a _msg ctype whose msg-data is set to given the byte string. The memory of malloc'd _msg must be manually freed via (free x)}])
+
 (define (make-msg-with-size size)
   (let ([_msg-ctype (make-empty-msg)])
     (msg-init-size! _msg-ctype size)
     _msg-ctype))
+(provide/doc
+ [proc-doc/names
+  make-msg-with-size (c:-> exact-nonnegative-integer? msg?)
+  (exact-nonnegative-integer)
+  @{Returns a _msg ctype whose size is set the given non-negative integer. The memory of malloc'd _msg must be manually freed via (free x)}])
+
 (define-zmq
   [msg-copy! zmq_msg_copy]
   (-> [dest msg?] [src msg?] void)
