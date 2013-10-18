@@ -223,6 +223,7 @@
 (define (make-empty-msg)
   (let ([msg (malloc _msg 'raw)])
     (set-cpointer-tag! msg msg-tag)
+    (msg-init! msg)
     msg))
 (provide/doc
  [proc-doc/names
@@ -242,9 +243,10 @@
   @{Returns a _msg ctype whose msg-data is set to given the byte string. The memory of malloc'd _msg must be manually freed via (free x)}])
 
 (define (make-msg-with-size size)
-  (let ([_msg-ctype (make-empty-msg)])
-    (msg-init-size! _msg-ctype size)
-    _msg-ctype))
+  (let ([msg-ptr (malloc _msg 'raw)])
+    (set-cpointer-tag! msg-ptr msg-tag)
+    (msg-init-size! msg-ptr size)
+    msg-ptr))
 (provide/doc
  [proc-doc/names
   make-msg-with-size (c:-> exact-nonnegative-integer? msg?)
