@@ -220,9 +220,15 @@
   msg-data (c:-> msg? bytes?)
   (msg) @{Creates a sized byte string from a message's data.}])
 
+;; Returns a pointer tag with msg suitable for adding data, and
+;; for sending and receiving
+(define (malloc-msg)
+  (let ([_msg-ctype (malloc _msg 'raw)])
+    (set-cpointer-tag! _msg-ctype msg-tag)
+    _msg-ctype))
+
 (define (make-empty-msg)
-  (let ([msg (malloc _msg 'raw)])
-    (set-cpointer-tag! msg msg-tag)
+  (let ([msg (malloc-msg)])
     (msg-init! msg)
     msg))
 (provide/doc
@@ -233,9 +239,9 @@
 
 (define (make-msg-with-data bs)
   (let* ([length (bytes-length bs)]
-         [_msg-ctype (make-msg-with-size length)])
-    (memcpy (msg-data-pointer _msg-ctype) bs length)
-    _msg-ctype))
+         [msg (make-msg-with-size length)])
+    (memcpy (msg-data-pointer msg) bs length)
+    msg))
 (provide/doc
  [proc-doc/names
   make-msg-with-data (c:-> bytes? msg?)
@@ -243,10 +249,9 @@
   @{Returns a _msg ctype whose msg-data is set to given the byte string. The memory of malloc'd _msg must be manually freed via (free x)}])
 
 (define (make-msg-with-size size)
-  (let ([msg-ptr (malloc _msg 'raw)])
-    (set-cpointer-tag! msg-ptr msg-tag)
-    (msg-init-size! msg-ptr size)
-    msg-ptr))
+  (let ([msg (malloc-msg)])
+    (msg-init-size! msg size)
+    msg))
 (provide/doc
  [proc-doc/names
   make-msg-with-size (c:-> exact-nonnegative-integer? msg?)
@@ -386,11 +391,7 @@
         -> [bytes-sent : _int] -> (if (negative? bytes-sent) (zmq-error) bytes-sent)))
 
 (define (socket-send! s bs)
-  (define m (malloc _msg 'raw))
-  (set-cpointer-tag! m msg-tag)
-  (define len (bytes-length bs))
-  (msg-init-size! m len)
-  (memcpy (msg-data-pointer m) bs len)
+  (define m (make-msg-with-data bs))
   (dynamic-wind
    void
    (λ () (socket-send-msg! m s empty) (void))
@@ -410,8 +411,7 @@
         -> [bytes-recvd : _int] -> (when (negative? bytes-recvd) (zmq-error))))
 
 (define (socket-recv! s)
-  (define m (malloc _msg 'raw))
-  (set-cpointer-tag! m msg-tag)
+  (define m (malloc-msg))
   (msg-init! m)
   (socket-recv-msg! m s empty)
   (dynamic-wind
