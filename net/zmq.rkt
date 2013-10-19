@@ -235,7 +235,7 @@
  [proc-doc/names
   make-empty-msg (c:-> msg?)
   ()
-  @{Returns a _msg ctype with no data. The memory of malloc'd _msg must be manually freed via (free x)}])
+  @{Returns a _msg ctype with no data. The _msg must be manually deallocated using @racket[free]}])
 
 (define (make-msg-with-data bs)
   (let* ([length (bytes-length bs)]
@@ -246,7 +246,7 @@
  [proc-doc/names
   make-msg-with-data (c:-> bytes? msg?)
   (bytes)
-  @{Returns a _msg ctype whose msg-data is set to given the byte string. The memory of malloc'd _msg must be manually freed via (free x)}])
+  @{Returns a _msg ctype whose msg-data is set to given the byte string. The _msg must be manually deallocated using @racket[free]}])
 
 (define (make-msg-with-size size)
   (let ([msg (malloc-msg)])
@@ -256,7 +256,7 @@
  [proc-doc/names
   make-msg-with-size (c:-> exact-nonnegative-integer? msg?)
   (exact-nonnegative-integer)
-  @{Returns a _msg ctype whose size is set the given non-negative integer. The memory of malloc'd _msg must be manually freed via (free x)}])
+  @{Returns a _msg ctype whose size is set the given non-negative integer. The _msg must be manually deallocated using @racket[free]}])
 
 (define-zmq
   [msg-copy! zmq_msg_copy]
