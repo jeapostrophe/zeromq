@@ -227,6 +227,15 @@
     (set-cpointer-tag! _msg-ctype msg-tag)
     _msg-ctype))
 
+(module+ test
+  (require rackunit)
+  (test-case
+   "make-empty-msg"
+   (define msg (make-empty-msg))
+   (check-true (msg? msg))
+   (check-equal? (bytes-length (msg-data msg)) 0)
+   (free msg)))
+
 (define (make-empty-msg)
   (let ([msg (malloc-msg)])
     (msg-init! msg)
@@ -237,6 +246,19 @@
   ()
   @{Returns a _msg ctype with no data. The _msg must be manually deallocated using @racket[free]}])
 
+(module+ test
+  (test-case
+   "make-msg-with-data"
+   (define data #"Hello")
+   (define length (bytes-length data))
+   (define msg (make-msg-with-data data))
+   (check-true (msg? msg))
+   (check-equal? (msg-data msg) data)
+   (free msg)
+   (check-exn
+    exn:fail:contract?
+    (λ ()
+      (make-msg-with-data "not-a-byte-string")))))
 (define (make-msg-with-data bs)
   (let* ([length (bytes-length bs)]
          [msg (make-msg-with-size length)])
@@ -248,6 +270,18 @@
   (bytes)
   @{Returns a _msg ctype whose msg-data is set to given the byte string. The _msg must be manually deallocated using @racket[free]}])
 
+(module+ test
+  (test-case
+   "make-msg-with-size"
+   (define size 8)
+   (define msg (make-msg-with-size size))
+   (check-true (msg? msg))
+   (check-eq? (msg-size msg) size)
+   (free msg)
+   (check-exn
+    exn:fail:contract?
+    (λ ()
+      (make-msg-with-size "not-an-integer")))))
 (define (make-msg-with-size size)
   (let ([msg (malloc-msg)])
     (msg-init-size! msg size)
