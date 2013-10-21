@@ -220,6 +220,78 @@
   msg-data (c:-> msg? bytes?)
   (msg) @{Creates a sized byte string from a message's data.}])
 
+;; Returns a pointer tag with msg suitable for adding data, and
+;; for sending and receiving
+(define (malloc-msg)
+  (let ([_msg-ctype (malloc _msg 'raw)])
+    (set-cpointer-tag! _msg-ctype msg-tag)
+    _msg-ctype))
+
+(module+ test
+  (require rackunit)
+  (test-case
+   "make-empty-msg"
+   (define msg (make-empty-msg))
+   (check-true (msg? msg))
+   (check-equal? (bytes-length (msg-data msg)) 0)
+   (free msg)))
+
+(define (make-empty-msg)
+  (let ([msg (malloc-msg)])
+    (msg-init! msg)
+    msg))
+(provide/doc
+ [proc-doc/names
+  make-empty-msg (c:-> msg?)
+  ()
+  @{Returns a _msg ctype with no data. The _msg must be manually deallocated using @racket[free]}])
+
+(module+ test
+  (test-case
+   "make-msg-with-data"
+   (define data #"Hello")
+   (define length (bytes-length data))
+   (define msg (make-msg-with-data data))
+   (check-true (msg? msg))
+   (check-equal? (msg-data msg) data)
+   (free msg)
+   (check-exn
+    exn:fail:contract?
+    (λ ()
+      (make-msg-with-data "not-a-byte-string")))))
+(define (make-msg-with-data bs)
+  (let* ([length (bytes-length bs)]
+         [msg (make-msg-with-size length)])
+    (memcpy (msg-data-pointer msg) bs length)
+    msg))
+(provide/doc
+ [proc-doc/names
+  make-msg-with-data (c:-> bytes? msg?)
+  (bytes)
+  @{Returns a _msg ctype whose msg-data is set to given the byte string. The _msg must be manually deallocated using @racket[free]}])
+
+(module+ test
+  (test-case
+   "make-msg-with-size"
+   (define size 8)
+   (define msg (make-msg-with-size size))
+   (check-true (msg? msg))
+   (check-eq? (msg-size msg) size)
+   (free msg)
+   (check-exn
+    exn:fail:contract?
+    (λ ()
+      (make-msg-with-size "not-an-integer")))))
+(define (make-msg-with-size size)
+  (let ([msg (malloc-msg)])
+    (msg-init-size! msg size)
+    msg))
+(provide/doc
+ [proc-doc/names
+  make-msg-with-size (c:-> exact-nonnegative-integer? msg?)
+  (exact-nonnegative-integer)
+  @{Returns a _msg ctype whose size is set the given non-negative integer. The _msg must be manually deallocated using @racket[free]}])
+
 (define-zmq
   [msg-copy! zmq_msg_copy]
   (-> [dest msg?] [src msg?] void)
@@ -353,11 +425,7 @@
         -> [bytes-sent : _int] -> (if (negative? bytes-sent) (zmq-error) bytes-sent)))
 
 (define (socket-send! s bs)
-  (define m (malloc _msg 'raw))
-  (set-cpointer-tag! m msg-tag)
-  (define len (bytes-length bs))
-  (msg-init-size! m len)
-  (memcpy (msg-data-pointer m) bs len)
+  (define m (make-msg-with-data bs))
   (dynamic-wind
    void
    (λ () (socket-send-msg! m s empty) (void))
@@ -377,8 +445,7 @@
         -> [bytes-recvd : _int] -> (when (negative? bytes-recvd) (zmq-error))))
 
 (define (socket-recv! s)
-  (define m (malloc _msg 'raw))
-  (set-cpointer-tag! m msg-tag)
+  (define m (malloc-msg))
   (msg-init! m)
   (socket-recv-msg! m s empty)
   (dynamic-wind
