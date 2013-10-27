@@ -439,7 +439,9 @@
  [proc-doc/names
   proxy! (c:->* (socket? socket?) (socket/null/c) void)
   ([frontend backend] [(capture #f)])
-  @{Given two sockets and an optional capture socket, set up a proxy between the frontend socket and the backend socket}])
+  @{An FFY binding for @link["http://api.zeromq.org/zmq_proxy.html"].
+   Given two sockets and an optional capture socket, set up a proxy between
+   the frontend socket and the backend socket.}])
 
 (define (socket-send! s bs)
   (define m (make-msg-with-data bs))
