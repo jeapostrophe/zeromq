@@ -424,21 +424,22 @@
   (_fun _msg-pointer _socket _send/recv-flags
         -> [bytes-sent : _int] -> (if (negative? bytes-sent) (zmq-error) bytes-sent)))
 
-(define socket/false/c
+(define socket/null/c
   (c:or/c socket? (lambda (any) (false? any))))
 
 (define-zmq
   [proxy* zmq_proxy]
-  (-> [frontend socket?] [backend socket?] [capture socket/false/c] void)
+  (-> [frontend socket?] [backend socket?] [capture socket/null/c] void)
   (_fun _socket _socket _socket/null
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
-(define (proxy! frontend backend capture)
-  (proxy* frontend backend capture))
+(define proxy!
+  (lambda (frontend backend [capture #f])
+    (proxy* frontend backend capture)))
 (provide/doc
  [proc-doc/names
-  proxy! (c:-> socket? socket? socket/false/c void)
-  (socket socket socket/null?)
+  proxy! (c:->* (socket? socket?) (socket/null/c) void)
+  ([frontend backend] [(capture #f)])
   @{Given two sockets and an optional capture socket set up a proxy between the frontend socket and the backend socket}])
 
 (define (socket-send! s bs)
