@@ -428,9 +428,7 @@
 (define socket/null/c
   (c:or/c socket? (lambda (any) (false? any))))
 
-(define-zmq
-  [proxy* zmq_proxy]
-  (-> [frontend socket?] [backend socket?] [capture socket/null/c] void)
+(define-zmq* [proxy* zmq_proxy]
   (_fun _socket _socket _socket/null
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
@@ -441,7 +439,7 @@
  [proc-doc/names
   proxy! (c:->* (socket? socket?) (socket/null/c) void)
   ([frontend backend] [(capture #f)])
-  @{Given two sockets and an optional capture socket set up a proxy between the frontend socket and the backend socket}])
+  @{Given two sockets and an optional capture socket, set up a proxy between the frontend socket and the backend socket}])
 
 (define (socket-send! s bs)
   (define m (make-msg-with-data bs))
