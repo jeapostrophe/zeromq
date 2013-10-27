@@ -425,24 +425,6 @@
   (_fun _msg-pointer _socket _send/recv-flags
         -> [bytes-sent : _int] -> (if (negative? bytes-sent) (zmq-error) bytes-sent)))
 
-(define socket/null/c
-  (c:or/c socket? (lambda (any) (false? any))))
-
-(define-zmq* [proxy* zmq_proxy]
-  (_fun _socket _socket _socket/null
-        -> [err : _int] -> (unless (zero? err) (zmq-error))))
-
-(define proxy!
-  (lambda (frontend backend [capture #f])
-    (proxy* frontend backend capture)))
-(provide/doc
- [proc-doc/names
-  proxy! (c:->* (socket? socket?) (socket/null/c) void)
-  ([frontend backend] [(capture #f)])
-  @{An FFY binding for @link["http://api.zeromq.org/zmq_proxy.html"].
-   Given two sockets and an optional capture socket, set up a proxy between
-   the frontend socket and the backend socket.}])
-
 (define (socket-send! s bs)
   (define m (make-msg-with-data bs))
   (dynamic-wind
@@ -485,6 +467,24 @@
   (_fun [items : (_vector i _poll-item)] [nitems : _int = (vector-length items)]
         [timeout : _long]
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
+
+(define socket/null/c
+  (c:or/c socket? (lambda (any) (false? any))))
+
+(define-zmq* [proxy* zmq_proxy]
+  (_fun _socket _socket _socket/null
+        -> [err : _int] -> (unless (zero? err) (zmq-error))))
+
+(define proxy!
+  (lambda (frontend backend [capture #f])
+    (proxy* frontend backend capture)))
+(provide/doc
+ [proc-doc/names
+  proxy! (c:->* (socket? socket?) (socket/null/c) void)
+  ([frontend backend] [(capture #f)])
+  @{An FFY binding for @link["http://api.zeromq.org/zmq_proxy.html"].
+   Given two sockets and an optional capture socket, set up a proxy between
+   the frontend socket and the backend socket.}])
 
 (define-zmq
   [zmq-version zmq_version]
