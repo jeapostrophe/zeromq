@@ -3,6 +3,7 @@
          racket/list
          racket/stxparam
          racket/splicing
+         racket/bool
          (for-syntax racket/base
                      racket/syntax
                      racket/stxparam-exptime)
