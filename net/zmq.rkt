@@ -47,6 +47,8 @@
   socket? (c:-> any/c boolean?)
   (x) @{Determines if @racket[x] is a pointer to a ZeroMQ socket.}])
 
+(define socket/c (flat-named-contract 'socket socket?))
+
 (define-syntax-rule (define-zmq-symbols _type type?
                       [sym = num] ...)
   (begin 
@@ -468,9 +470,6 @@
         [timeout : _long]
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
-(define socket/null/c
-  (c:or/c socket? (lambda (any) (false? any))))
-
 (define-zmq* [proxy* zmq_proxy]
   (_fun _socket _socket _socket/null
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
@@ -480,7 +479,7 @@
     (proxy* frontend backend capture)))
 (provide/doc
  [proc-doc/names
-  proxy! (c:->* (socket? socket?) (socket/null/c) void)
+  proxy! (->* (socket/c socket/c) ((or/c socket/c false?)) void)
   ([frontend backend] [(capture #f)])
   @{An FFY binding for @link["http://api.zeromq.org/zmq_proxy.html"].
    Given two sockets and an optional capture socket, set up a proxy between
