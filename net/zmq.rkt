@@ -470,7 +470,8 @@
         [timeout : _long]
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
-(define-zmq* [proxy* zmq_proxy]
+(define-zmq*
+  [proxy* zmq_proxy]
   (_fun _socket _socket _socket/null
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
