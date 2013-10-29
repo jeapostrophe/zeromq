@@ -475,6 +475,34 @@
   (_fun _socket _socket _socket/null
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
+(module+ test
+  (test-case
+   "proxy!"
+   (let* ([ctx (context 1)]
+          [dealer (socket ctx 'DEALER)])
+     (check-exn
+      exn:fail:contract?
+      (λ ()
+        (proxy! dealer #f)))
+     (check-exn
+      exn:fail:contract?
+      (λ ()
+        (proxy! #f dealer)))
+     (check-exn
+      exn:fail:contract?
+      (λ ()
+        (let ([router (socket ctx 'ROUTER)])
+          (dynamic-wind
+            void
+            (λ ()
+              (socket-connect! router "tcp://127.0.0.1:8888")
+              (socket-bind! dealer "inproc://dealers")
+              (proxy! router dealer "shsh"))
+            (λ ()
+              (socket-close! router))))))
+     (socket-close! dealer)
+     (context-close! ctx))))
+
 (define (proxy! frontend backend [capture #f])
   (proxy* frontend backend capture))
 (provide/doc
