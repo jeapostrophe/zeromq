@@ -476,6 +476,7 @@
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
 (module+ test
+  (require math/base)
   (test-case
    "proxy!"
    (let* ([ctx (context 1)]
@@ -495,9 +496,13 @@
           (dynamic-wind
             void
             (λ ()
-              (socket-connect! router "tcp://127.0.0.1:8888")
-              (socket-bind! dealer "inproc://dealers")
-              (proxy! router dealer "shsh"))
+               ;; create random number for port
+               (let ([port-number (for/fold ([port-number ""])
+                                            ([count 4])
+                                    (string-append port-number (number->string (random-integer 2 9))))])
+                 (socket-connect! router (string-append "tcp://127.0.0.1:" port-number))
+                 (socket-bind! dealer "inproc://test-dealers")
+                 (proxy! router dealer "shsh")))
             (λ ()
               (socket-close! router))))))
      (socket-close! dealer)
