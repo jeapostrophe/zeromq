@@ -475,9 +475,8 @@
   (_fun _socket _socket _socket/null
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
-(define proxy!
-  (lambda (frontend backend [capture #f])
-    (proxy* frontend backend capture)))
+(define (proxy! frontend backend [capture #f])
+  (proxy* frontend backend capture))
 (provide/doc
  [proc-doc/names
   proxy! (->* (socket/c socket/c) ((or/c socket/c false?)) void)
