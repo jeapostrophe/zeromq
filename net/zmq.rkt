@@ -3,6 +3,7 @@
          racket/list
          racket/stxparam
          racket/splicing
+         racket/bool
          (for-syntax racket/base
                      racket/syntax
                      racket/stxparam-exptime)
@@ -19,19 +20,19 @@
   (define external
     (get-ffi-obj 'internal zmq-lib type)))
 
-(define-syntax-parameter current-zmq-fun #f) 
+(define-syntax-parameter current-zmq-fun #f)
 (define-syntax-rule (define-zmq (external internal)
                       (-> [name name/c] ...
                           result/c)
                       type)
   (begin
-    (splicing-syntax-parameterize 
+    (splicing-syntax-parameterize
      ([current-zmq-fun 'external])
      (define-zmq* (external internal) type))
     (provide/doc
      [proc-doc/names
       external (c:-> name/c ... result/c)
-      (name ...) @{An FFI binding for 
+      (name ...) @{An FFI binding for
                    @link[(format "http://api.zeromq.org/~a.html" 'internal)]{@symbol->string['internal]}.}])))
 
 ;;
@@ -46,9 +47,11 @@
   socket? (c:-> any/c boolean?)
   (x) @{Determines if @racket[x] is a pointer to a ZeroMQ socket.}])
 
+(define socket/c (flat-named-contract 'socket socket?))
+
 (define-syntax-rule (define-zmq-symbols _type type?
                       [sym = num] ...)
-  (begin 
+  (begin
     (define _type
       (_enum (append '[sym = num] ...) _int))
     (define type?
@@ -59,7 +62,7 @@
       @{A contract for the symbols @racket['(sym ...)]}])))
 (define-syntax-rule (define-zmq-bitmask _base _type type?
                       [sym = num] ...)
-  (begin 
+  (begin
     (define _type
       (_bitmask (append '[sym = num] ...) _base))
     (define type-symbol?
@@ -113,7 +116,7 @@
 
 (require (for-syntax racket/base syntax/parse unstable/syntax))
 (define-syntax (define-cvector-type stx)
-  (syntax-parse 
+  (syntax-parse
    stx
    [(_ name:id _type:expr size:number)
     (with-syntax
@@ -124,7 +127,7 @@
         (define-cstruct name
           ([field _type]
            ...))))]))
-    
+
 (define-cvector-type _ucharMAX _uchar 30)
 (define-cstruct _msg
   ([content _pointer]
@@ -148,7 +151,7 @@
  [proc-doc/names
   poll-item? (c:-> any/c boolean?)
   (x) @{Determines if @racket[x] is a ZeroMQ poll item.}]
- [proc-doc/names 
+ [proc-doc/names
   make-poll-item (c:-> socket? exact-nonnegative-integer? poll-status? poll-status?
                        poll-item?)
   (socket fd events revents)
@@ -156,7 +159,7 @@
  [proc-doc/names
   poll-item-revents (c:-> poll-item? poll-status?)
   (pi) @{Extracts the @litchar{revents} field from a poll item structure.}])
-  
+
 ;; Errors
 (define-zmq*
   [errno zmq_errno]
@@ -172,7 +175,7 @@
        (error '#,(syntax-parameter-value #'current-zmq-fun) (strerro (errno))))]))
 
 ;; Context
-(define-zmq 
+(define-zmq
   [context zmq_init]
   (-> [io_threads exact-nonnegative-integer?]
       context?)
@@ -323,10 +326,10 @@
      (with-syntax ([(_type-external ...) (generate-temporaries #'(_type ...))])
        (syntax/loc stx
          (begin
-           (splicing-syntax-parameterize 
+           (splicing-syntax-parameterize
             ([current-zmq-fun 'external])
             (define-zmq* [_type-external internal]
-              (_fun _socket _option-name 
+              (_fun _socket _option-name
                     [option-value : (_ptr o _type)]
                     [option-size : (_ptr o _size_t)]
                     -> [err : _int]
@@ -356,7 +359,7 @@
 
 (define-zmq-socket-options
   [socket-option zmq_getsockopt]
-  ([_int64 zero? boolean? 
+  ([_int64 zero? boolean?
            RCVMORE MCAST_LOOP]
    [_int64 (λ (x) x) exact-integer?
            RATE RECOVERY_IVL]
@@ -372,10 +375,10 @@
      (with-syntax ([(_type-external ...) (generate-temporaries #'(_type ...))])
        (syntax/loc stx
          (begin
-           (splicing-syntax-parameterize 
+           (splicing-syntax-parameterize
             ([current-zmq-fun 'external])
             (define-zmq* [_type-external internal]
-              (_fun _socket _option-name 
+              (_fun _socket _option-name
                     [option-value : _type]
                     [option-size : _size_t = (ctype-sizeof _type)]
                     -> [err : _int] -> (unless (zero? err) (zmq-error))))
@@ -466,6 +469,54 @@
   (_fun [items : (_vector i _poll-item)] [nitems : _int = (vector-length items)]
         [timeout : _long]
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
+
+(define-zmq*
+  [proxy* zmq_proxy]
+  (_fun _socket _socket _socket/null
+        -> [err : _int] -> (unless (zero? err) (zmq-error))))
+
+(module+ test
+  (require math/base)
+  (test-case
+   "proxy!"
+   (let* ([ctx (context 1)]
+          [dealer (socket ctx 'DEALER)])
+     (check-exn
+      exn:fail:contract?
+      (λ ()
+        (proxy! dealer #f)))
+     (check-exn
+      exn:fail:contract?
+      (λ ()
+        (proxy! #f dealer)))
+     (check-exn
+      exn:fail:contract?
+      (λ ()
+        (let ([router (socket ctx 'ROUTER)])
+          (dynamic-wind
+            void
+            (λ ()
+               ;; create random number for port
+               (let ([port-number (for/fold ([port-number ""])
+                                            ([count 4])
+                                    (string-append port-number (number->string (random-integer 2 9))))])
+                 (socket-connect! router (string-append "tcp://127.0.0.1:" port-number))
+                 (socket-bind! dealer "inproc://test-dealers")
+                 (proxy! router dealer "shsh")))
+            (λ ()
+              (socket-close! router))))))
+     (socket-close! dealer)
+     (context-close! ctx))))
+
+(define (proxy! frontend backend [capture #f])
+  (proxy* frontend backend capture))
+(provide/doc
+ [proc-doc/names
+  proxy! (->* (socket/c socket/c) ((or/c socket/c false?)) void)
+  ([frontend backend] [(capture #f)])
+  @{An FFI binding for @link["http://api.zeromq.org/3-2:zmq_proxy.html"].
+   Given two sockets and an optional capture socket, set up a proxy between
+   the frontend socket and the backend socket.}])
 
 (define-zmq
   [zmq-version zmq_version]
