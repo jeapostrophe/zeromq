@@ -514,7 +514,7 @@
  [proc-doc/names
   proxy! (->* (socket/c socket/c) ((or/c socket/c false?)) void)
   ([frontend backend] [(capture #f)])
-  @{An FFI binding for @link["http://api.zeromq.org/3-2:zmq_proxy.html"].
+  @{An FFI binding for @link["http://api.zeromq.org/3-2:zmq_proxy.html"]{zmq_proxy}.
    Given two sockets and an optional capture socket, set up a proxy between
    the frontend socket and the backend socket.}])
 
