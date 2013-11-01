@@ -384,7 +384,7 @@
  [proc-doc/names
   call-with-socket (c:-> context? socket-type? (procedure-arity-includes/c 1) void)
  (context socket-type procedure)
-  @{Using the @racket[socket!] procedure, @racket[call-with-socket] creates a socket of a valid @racket[socket-type?] using a previously created context. It passes the socket to a procedure with one argument. On return, it closes the socket using @racket[socket-close!]}])
+  @{Using the @racket[socket] procedure, @racket[call-with-socket] creates a socket of a valid @racket[socket-type?] using a previously created context. It passes the socket to a procedure with one argument. On return, it closes the socket using @racket[socket-close!]}])
 
 (define-syntax (define-zmq-socket-options stx)
   (syntax-case stx ()
