@@ -205,10 +205,10 @@
     "raises exception when the number thread count is not exact non-negative integer"
     exn:fail?
     (λ ()
-      (call-with-context #:thread-count -1 (λ (context) (void))))))
+      (call-with-context #:io-threads -1 (λ (context) (void))))))
 
-(define (call-with-context procedure #:thread-count [thread-count 1])
-  (let ([ctx (context thread-count)])
+(define (call-with-context procedure #:io-threads [io-threads 1])
+  (let ([ctx (context io-threads)])
     (dynamic-wind
       void
       (lambda ()
@@ -217,8 +217,8 @@
         (context-close! ctx)))))
 (provide/doc
  [proc-doc/names
-  call-with-context (->* ((procedure-arity-includes/c 1)) (#:thread-count exact-nonnegative-integer?) void)
- ((procedure) ((thread-count 1)))
+  call-with-context (->* ((procedure-arity-includes/c 1)) (#:io-threads exact-nonnegative-integer?) void)
+ ((procedure) ((io-threads 1)))
   @{Using the @racket[context] procedure, @racket[call-with-context] creates a context and passes it to a procedure with one argument. On return, it closes the context using @racket[context-close!]}])
 
 ;; Message
