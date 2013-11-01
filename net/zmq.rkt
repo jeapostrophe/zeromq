@@ -189,6 +189,38 @@
   (_fun [context : _context]
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
+(module+ test
+  (require rackunit)
+  (test-case
+   "call-with-context"
+   (call-with-context (lambda (context)
+                        ;; check if it returns a context
+                        (check-true (context? context)))))
+  (test-exn
+    "raises exception when procedure is missing an argument"
+    exn:fail:contract?
+    (lambda ()
+      (call-with-context (lambda () (display "wrong")))))
+  (test-exn
+    "raises exception when the number thread count is not exact non-negative integer"
+    exn:fail?
+    (lambda ()
+      (call-with-context #:thread-count -1 (lambda (context) (display "shsh"))))))
+
+(define (call-with-context procedure #:thread-count [thread-count 1])
+  (let ([ctx (context thread-count)])
+    (dynamic-wind
+      void
+      (lambda ()
+        (procedure ctx) (void))
+      (lambda ()
+        (context-close! ctx)))))
+(provide/doc
+ [proc-doc/names
+  call-with-context (->* ((procedure-arity-includes/c 1)) (#:thread-count exact-nonnegative-integer?) void)
+ ((procedure) ((thread-count 1)))
+  @{Using the @racket[context] procedure, @racket[call-with-context] creates a context and passes it to a procedure with one argument. On return, it closes the context using @racket[context-close!]}])
+
 ;; Message
 (define-zmq
   [msg-init! zmq_msg_init]
@@ -231,7 +263,6 @@
     _msg-ctype))
 
 (module+ test
-  (require rackunit)
   (test-case
    "make-empty-msg"
    (define msg (make-empty-msg))
