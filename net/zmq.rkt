@@ -193,19 +193,19 @@
   (require rackunit)
   (test-case
    "call-with-context"
-   (call-with-context (lambda (context)
+   (call-with-context (λ (context)
                         ;; check if it returns a context
                         (check-true (context? context)))))
   (test-exn
     "raises exception when procedure is missing an argument"
     exn:fail:contract?
-    (lambda ()
-      (call-with-context (lambda () (display "wrong")))))
+    (λ ()
+      (call-with-context (λ () (void)))))
   (test-exn
     "raises exception when the number thread count is not exact non-negative integer"
     exn:fail?
-    (lambda ()
-      (call-with-context #:thread-count -1 (lambda (context) (display "shsh"))))))
+    (λ ()
+      (call-with-context #:thread-count -1 (λ (context) (void))))))
 
 (define (call-with-context procedure #:thread-count [thread-count 1])
   (let ([ctx (context thread-count)])
