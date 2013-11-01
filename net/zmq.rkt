@@ -349,6 +349,43 @@
   (_fun _socket
         -> [err : _int] -> (unless (zero? err) (zmq-error))))
 
+(module+ test
+  (test-case
+   "call-with-socket"
+   (test-exn
+    "raises a contract error when a context is not used to create the socket"
+    exn:fail:contract?
+    (λ ()
+     (call-with-socket "not-a-context" 'REP (λ (socket) (void))))))
+  (call-with-context
+   (λ (context)
+     (test-exn
+      "raises exception when it receives an invalid socket type"
+      exn:fail:contract?
+      (λ ()
+       (call-with-socket context 'BLAH (λ (socket) (void)))))))
+  (call-with-context
+   (λ (context)
+     (test-exn
+      "raises exception when it does not receive a procedure with one arguement"
+      exn:fail:contract?
+      (lambda ()
+       (call-with-socket context 'BLAH (λ () (void))))))))
+
+(define (call-with-socket context socket-type procedure)
+  (let ([skt (socket context socket-type)])
+    (dynamic-wind
+      void
+      (lambda ()
+        (procedure skt) (void))
+      (lambda ()
+        (socket-close! skt)))))
+(provide/doc
+ [proc-doc/names
+  call-with-socket (c:-> context? socket-type? (procedure-arity-includes/c 1) void)
+ (context socket-type procedure)
+  @{Using the @racket[socket!] procedure, @racket[call-with-socket] creates a socket of a valid @racket[socket-type?] using a previously created context. It passes the socket to a procedure with one argument. On return, it closes the socket using @racket[socket-close!]}])
+
 (define-syntax (define-zmq-socket-options stx)
   (syntax-case stx ()
     [(_ [external internal]
