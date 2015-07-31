@@ -114,7 +114,7 @@
 (define _size_t _int)
 (define _uchar _uint8)
 
-(require (for-syntax racket/base syntax/parse unstable/syntax))
+(require (for-syntax racket/base syntax/parse))
 (define-syntax (define-cvector-type stx)
   (syntax-parse
    stx
