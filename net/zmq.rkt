@@ -179,25 +179,30 @@
 (define _uchar _uint8)
 
 (require (for-syntax racket/base syntax/parse))
-(define-syntax (define-cvector-type stx)
-  (syntax-parse
-   stx
-   [(_ name:id _type:expr size:number)
-    (with-syntax
-        ([(field ...)
-          (for/list ([i (in-range (syntax->datum #'size))])
-            (format-id #f "f~a" i))])
-      (syntax/loc stx
-        (define-cstruct name
-          ([field _type]
-           ...))))]))
 
-(define-cvector-type _ucharMAX _uchar 30)
+; need this defined here to get the version, so we can get the msg struct size
+(define-zmq
+  [zmq-version zmq_version]
+  (-> (values exact-nonnegative-integer? exact-nonnegative-integer? exact-nonnegative-integer?))
+  (_fun [major : (_ptr o _int)] [minor : (_ptr o _int)] [patch : (_ptr o _int)]
+      -> (_ : _void) -> (values major minor patch)))
+
+; get correct zmq_msg_t / _msg size depending on c library version
+(define msg-struct-size
+  (let-values ([(major minor patch) (zmq-version)])
+    (cond
+      [(<= major 3) 32]; was also 36 earlier in 3.0.0
+      [(and (= major 4) (= minor 0)) 32]
+      [(and (= major 4) (= minor 1)) 48] ; was also 40 for a while, no idea of patch versions
+      [(and (>= major 4) (>= minor 2)) 64] ))) ; will probably stay at 64 for a while https://github.com/zeromq/libzmq/issues/1295
+
+; From zmq.h
+; // union here ensures correct alignment on architectures that require it, e.g. SPARC
+; // C standard guarantees that the union itself will be aligned to the size of the largest element.
+; but this doesn't seem to work (on i686), cos (ctype-alignof _msg) always returns 1? Not sure.
 (define-cstruct _msg
-  ([content _pointer]
-   [flags _uchar]
-   [vsm_size _uchar]
-   [vsm_data _ucharMAX]))
+  ([content (_array _uchar msg-struct-size)])
+  #:alignment (ctype-sizeof _pointer))
 (provide/doc
  [proc-doc/names
   msg? (c:-> any/c boolean?)
@@ -652,9 +657,3 @@
   @{An FFI binding for @link["http://api.zeromq.org/3-2:zmq_proxy.html"]{zmq_proxy}.
    Given two sockets and an optional capture socket, set up a proxy between
    the frontend socket and the backend socket.}])
-
-(define-zmq
-  [zmq-version zmq_version]
-  (-> (values exact-nonnegative-integer? exact-nonnegative-integer? exact-nonnegative-integer?))
-  (_fun [major : (_ptr o _int)] [minor : (_ptr o _int)] [patch : (_ptr o _int)]
-        -> [err : _int] -> (if (zero? err) (values major minor patch) (zmq-error))))
