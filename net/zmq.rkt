@@ -88,7 +88,8 @@
   [PULL = 7]
   [PUSH = 8]
   [XPUB = 9]
-  [XSUB = 10])
+  [XSUB = 10]
+  [STREAM = 11])
 (define-zmq-symbols _option-name option-name?
   [AFFINITY = 4]
   [IDENTITY = 5]
@@ -96,12 +97,75 @@
   [UNSUBSCRIBE = 7]
   [RATE = 8]
   [RECOVERY_IVL = 9]
-  [MCAST_LOOP = 10]
   [SNDBUF = 11]
   [RCVBUF = 12]
   [RCVMORE = 13]
+  [FD = 14]
+  [EVENTS = 15]
+  [TYPE = 16]
+  [LINGER = 17]
+  [RECONNECT_IVL = 18]
+  [BACKLOG = 19]
+  [RECONNECT_IVL_MAX = 21]
+  [MAXMSGSIZE = 22]
   [SNDHWM = 23]
-  [RCVHWM = 24])
+  [RCVHWM = 24]
+  [MULTICAST_HOPS = 25]
+  [RCVTIMEO = 27]
+  [SNDTIMEO = 28]
+  [LAST_ENDPOINT = 32]
+  [ROUTER_MANDATORY = 33]
+  [TCP_KEEPALIVE = 34]
+  [TCP_KEEPALIVE_CNT = 35]
+  [TCP_KEEPALIVE_IDLE = 36]
+  [TCP_KEEPALIVE_INTVL = 37]
+  [IMMEDIATE = 39]
+  [XPUB_VERBOSE = 40]
+  [ROUTER_RAW = 41]
+  [IPV6 = 42]
+  [MECHANISM = 43]
+  [PLAIN_SERVER = 44]
+  [PLAIN_USERNAME = 45]
+  [PLAIN_PASSWORD = 46]
+  [CURVE_SERVER = 47]
+  [CURVE_PUBLICKEY = 48]
+  [CURVE_SECRETKEY = 49]
+  [CURVE_SERVERKEY = 50]
+  [PROBE_ROUTER = 51]
+  [REQ_CORRELATE = 52]
+  [REQ_RELAXED = 53]
+  [CONFLATE = 54]
+  [ZAP_DOMAIN = 55]
+  [ROUTER_HANDOVER = 56]
+  [TOS = 57]
+  [CONNECT_RID = 61]
+  [GSSAPI_SERVER = 62]
+  [GSSAPI_PRINCIPAL = 63]
+  [GSSAPI_SERVICE_PRINCIPAL = 64]
+  [GSSAPI_PLAINTEXT = 65]
+  [HANDSHAKE_IVL = 66]
+  [SOCKS_PROXY = 68]
+  [XPUB_NODROP = 69]
+  ;  All options after this is for version 4.2 and still *draft*
+  ;  Subject to arbitrary change without notice
+  [BLOCKY = 70]
+  [XPUB_MANUAL = 71]
+  [XPUB_WELCOME_MSG = 72]
+  [STREAM_NOTIFY = 73]
+  [INVERT_MATCHING = 74]
+  [HEARTBEAT_IVL = 75]
+  [HEARTBEAT_TTL = 76]
+  [HEARTBEAT_TIMEOUT = 77]
+  [XPUB_VERBOSER = 78]
+  [CONNECT_TIMEOUT = 79]
+  [TCP_MAXRT = 80]
+  [THREAD_SAFE = 81]
+  [MULTICAST_MAXTPDU = 84]
+  [VMCI_BUFFER_SIZE = 85]
+  [VMCI_BUFFER_MIN_SIZE = 86]
+  [VMCI_BUFFER_MAX_SIZE = 87]
+  [VMCI_CONNECT_TIMEOUT = 88]
+  [USE_FD = 89])
 (define-zmq-bitmask _int _send/recv-flags send/recv-flags?
   [DONTWAIT = 1]
   [NOBLOCK = 1] ; NOBLOCK has been replaced with DONTWAIT, leaving in for compatibility
@@ -115,25 +179,30 @@
 (define _uchar _uint8)
 
 (require (for-syntax racket/base syntax/parse))
-(define-syntax (define-cvector-type stx)
-  (syntax-parse
-   stx
-   [(_ name:id _type:expr size:number)
-    (with-syntax
-        ([(field ...)
-          (for/list ([i (in-range (syntax->datum #'size))])
-            (format-id #f "f~a" i))])
-      (syntax/loc stx
-        (define-cstruct name
-          ([field _type]
-           ...))))]))
 
-(define-cvector-type _ucharMAX _uchar 30)
+; need this defined here to get the version, so we can get the msg struct size
+(define-zmq
+  [zmq-version zmq_version]
+  (-> (values exact-nonnegative-integer? exact-nonnegative-integer? exact-nonnegative-integer?))
+  (_fun [major : (_ptr o _int)] [minor : (_ptr o _int)] [patch : (_ptr o _int)]
+      -> (_ : _void) -> (values major minor patch)))
+
+; get correct zmq_msg_t / _msg size depending on c library version
+(define msg-struct-size
+  (let-values ([(major minor patch) (zmq-version)])
+    (cond
+      [(<= major 3) 32]; was also 36 earlier in 3.0.0
+      [(and (= major 4) (= minor 0)) 32]
+      [(and (= major 4) (= minor 1)) 48] ; was also 40 for a while, no idea of patch versions
+      [(and (>= major 4) (>= minor 2)) 64] ))) ; will probably stay at 64 for a while https://github.com/zeromq/libzmq/issues/1295
+
+; From zmq.h
+; // union here ensures correct alignment on architectures that require it, e.g. SPARC
+; // C standard guarantees that the union itself will be aligned to the size of the largest element.
+; but this doesn't seem to work (on i686), cos (ctype-alignof _msg) always returns 1? Not sure.
 (define-cstruct _msg
-  ([content _pointer]
-   [flags _uchar]
-   [vsm_size _uchar]
-   [vsm_data _ucharMAX]))
+  ([content (_array _uchar msg-struct-size)])
+  #:alignment (ctype-sizeof _pointer))
 (provide/doc
  [proc-doc/names
   msg? (c:-> any/c boolean?)
@@ -588,9 +657,3 @@
   @{An FFI binding for @link["http://api.zeromq.org/3-2:zmq_proxy.html"]{zmq_proxy}.
    Given two sockets and an optional capture socket, set up a proxy between
    the frontend socket and the backend socket.}])
-
-(define-zmq
-  [zmq-version zmq_version]
-  (-> (values exact-nonnegative-integer? exact-nonnegative-integer? exact-nonnegative-integer?))
-  (_fun [major : (_ptr o _int)] [minor : (_ptr o _int)] [patch : (_ptr o _int)]
-        -> [err : _int] -> (if (zero? err) (values major minor patch) (zmq-error))))
