@@ -321,7 +321,9 @@
   (_fun _msg-pointer -> _size_t))
 
 (define (msg-data m)
-  (make-sized-byte-string (msg-data-pointer m) (msg-size m)))
+  (define s (make-bytes (msg-size m)))
+  (memcpy s (msg-data-pointer m) (msg-size m))
+  s)
 (provide/doc
  [proc-doc/names
   msg-data (c:-> msg? bytes?)
@@ -593,7 +595,7 @@
   (socket-recv-msg! m s empty)
   (dynamic-wind
    void
-   (λ () (bytes-copy (msg-data m)))
+   (λ () (msg-data m))
    (λ ()
      (msg-close! m)
      (free m))))
