@@ -610,7 +610,9 @@
   (-> [items (vectorof poll-item?)] [timeout exact-integer?] void)
   (_fun [items : (_vector i _poll-item)] [nitems : _int = (vector-length items)]
         [timeout : _long]
-        -> [err : _int] -> (unless (zero? err) (zmq-error))))
+        -> [ret : _int] -> (cond [(negative? ret) (zmq-error)]
+                                 [(zero? ret) #f]
+                                 [else ret])))
 
 (define-zmq*
   [proxy* zmq_proxy]
