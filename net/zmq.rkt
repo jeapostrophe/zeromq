@@ -607,7 +607,7 @@
 
 (define-zmq
   [poll! zmq_poll]
-  (-> [items (vectorof poll-item?)] [timeout exact-integer?] void)
+  (-> [items (vectorof poll-item?)] [timeout exact-integer?] (or/c false? exact-positive-integer?))
   (_fun [items : (_vector i _poll-item)] [nitems : _int = (vector-length items)]
         [timeout : _long]
         -> [ret : _int] -> (cond [(negative? ret) (zmq-error)]
